@@ -1,4 +1,4 @@
-FROM redmine:4.2
+FROM redmine:5.1.3
 
 # Instalar el adaptador de PostgreSQL
 RUN apt-get update && apt-get install -y postgresql-client
