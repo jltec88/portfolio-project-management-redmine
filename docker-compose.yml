@@ -4,37 +4,65 @@
 version: '3'
 
 services:
-  redmine:
-    build: .
+  traefik:
+    image: traefik:v2.5
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
-      - "3000:3000"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./letsencrypt:/letsencrypt"
+    networks:
+      - web
+
+  redmine:
+    image: redmine:4.2
     environment:
-      - REDMINE_DB_POSTGRES=${REDMINE_DB_HOST}
-      - REDMINE_DB_USERNAME=${REDMINE_DB_USERNAME}
-      - REDMINE_DB_PASSWORD=${REDMINE_DB_PASSWORD}
-      - REDMINE_DB_DATABASE=${REDMINE_DB_DATABASE}
-      - SMTP_ADDRESS=${SMTP_ADDRESS}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_DOMAIN=${SMTP_DOMAIN}
-      - SMTP_AUTHENTICATION=${SMTP_AUTHENTICATION}
-      - SMTP_USER_NAME=${SMTP_USER_NAME}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - SMTP_ENABLE_STARTTLS_AUTO=${SMTP_ENABLE_STARTTLS_AUTO}
+      REDMINE_DB_POSTGRES: postgres
+      REDMINE_DB_USERNAME: ${REDMINE_DB_USERNAME}
+      REDMINE_DB_PASSWORD: ${REDMINE_DB_PASSWORD}
+      REDMINE_DB_DATABASE: ${REDMINE_DB_DATABASE}
+      REDMINE_SECRET_KEY_BASE: ${REDMINE_SECRET_KEY_BASE}
     depends_on:
       - postgres
     volumes:
       - redmine_files:/usr/src/redmine/files
-      - ./plugins:/usr/src/redmine/plugins
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redmine.rule=Host(`${REDMINE_DOMAIN}`)"
+      - "traefik.http.routers.redmine.entrypoints=websecure"
+      - "traefik.http.routers.redmine.tls.certresolver=myresolver"
+    networks:
+      - web
+      - internal
 
   postgres:
     image: postgres:13
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+networks:
+  web:
+    external: true
+  internal:
+    external: false
 
 volumes:
   redmine_files:
   postgres_data:
+  letsencrypt:
