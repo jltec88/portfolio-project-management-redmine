@@ -1,7 +1,7 @@
 # portfolio-project-management-redmine
 # docker-compose.yml
 
-version: '3'
+version: '3.8'
 
 services:
   traefik:
@@ -15,14 +15,18 @@ services:
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=${TRAEFIK_ACME_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--log.level=DEBUG"
+      - "--serversTransport.forwardingTimeouts.dialTimeout=60s"
+      - "--serversTransport.forwardingTimeouts.responseHeaderTimeout=60s"
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./letsencrypt:/letsencrypt"
+      - "letsencrypt:/letsencrypt"
     networks:
       - web
+    restart: always
 
   redmine:
     build: .
@@ -39,6 +43,7 @@ services:
       SMTP_USER_NAME: ${SMTP_USER_NAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_ENABLE_STARTTLS_AUTO: ${SMTP_ENABLE_STARTTLS_AUTO}
+      REDMINE_HOST: https://${REDMINE_DOMAIN}
     depends_on:
       - postgres
     volumes:
@@ -48,9 +53,18 @@ services:
       - "traefik.http.routers.redmine.rule=Host(`${REDMINE_DOMAIN}`)"
       - "traefik.http.routers.redmine.entrypoints=websecure"
       - "traefik.http.routers.redmine.tls.certresolver=myresolver"
+      - "traefik.http.services.redmine.loadbalancer.server.port=3000"
+      - "traefik.docker.network=web"
     networks:
       - web
       - internal
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   postgres:
     image: postgres:16.4
@@ -62,12 +76,18 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - internal
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   web:
     external: true
   internal:
-    external: false
+    name: redmine_internal
 
 volumes:
   redmine_files:

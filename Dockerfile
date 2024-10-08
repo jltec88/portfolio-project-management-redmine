@@ -1,3 +1,6 @@
+# portfolio-project-management-redmine
+# Dockerfile
+
 FROM redmine:5.1.3
 
 # Instalar el adaptador de PostgreSQL
@@ -14,5 +17,8 @@ COPY database.yml /usr/src/redmine/config/database.yml
 
 # Configurar el archivo de configuración del correo electrónico
 COPY configuration.yml /usr/src/redmine/config/configuration.yml
+
+# Copiar el archivo de configuración adicional
+COPY additional_environment.rb /usr/src/redmine/config/additional_environment.rb
 
 # No hacer la migración aquí, se hará manualmente más tarde.

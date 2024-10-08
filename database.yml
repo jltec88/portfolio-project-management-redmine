@@ -1,3 +1,6 @@
+# portfolio-project-management-redmine
+# database.yml
+
 production:
   adapter: postgresql
   database: <%= ENV['REDMINE_DB_DATABASE'] %>

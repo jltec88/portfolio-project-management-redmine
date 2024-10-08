@@ -1,3 +1,6 @@
+# portfolio-project-management-redmine
+# configuration.yml
+
 production:
   email_delivery:
     delivery_method: :smtp
